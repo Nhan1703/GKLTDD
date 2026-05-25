@@ -1,0 +1,33 @@
+# Render Blueprint (tuỳ chọn): import hoặc tạo tay 2 service giống mô tả bên dưới.
+#
+# 1) fellow4u-api  — Web Service, root: backend, start: npm start
+# 2) fellow4u-web  — Static Site, build: bash render-build-web.sh, publish: build/web
+
+services:
+  - type: web
+    name: fellow4u-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_ENCRYPT
+        value: "true"
+      - key: DB_TRUST_CERT
+        value: "true"
+      # Thêm DB_SERVER, DB_NAME, DB_USER, DB_PASSWORD (GearHost) trên Dashboard
+
+  - type: web
+    name: fellow4u-web
+    runtime: static
+    buildCommand: bash render-build-web.sh
+    staticPublishPath: build/web
+    envVars:
+      - key: FELLOW4U_BASE_URL
+        value: https://gkltdd.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
