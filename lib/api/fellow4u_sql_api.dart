@@ -15,8 +15,8 @@ abstract final class Fellow4uSqlApi {
   static final Dio _dio = Dio(
     BaseOptions(
       baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 25),
-      receiveTimeout: const Duration(seconds: 25),
+      connectTimeout: const Duration(seconds: 90),
+      receiveTimeout: const Duration(seconds: 90),
       headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
     ),
   );
@@ -35,6 +35,12 @@ abstract final class Fellow4uSqlApi {
   static String _messageFromDio(DioException e) {
     final data = e.response?.data;
     if (data is Map && data['error'] != null) return '${data['error']}';
+    if (e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
+      return 'Máy chủ phản hồi chậm (Render đang khởi động hoặc database chưa kết nối). '
+          'Thử lại sau 30 giây, hoặc mở $_baseUrl/health trước khi đăng ký.';
+    }
     return e.message ?? 'Network error';
   }
 

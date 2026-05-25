@@ -33,8 +33,14 @@ app.get(['/api', '/api/'], (_req, res) => {
   });
 });
 
+let dbReady = false;
+
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, service: 'fellow4u-api', database: 'fellow4u_db' });
+  res.json({
+    ok: true,
+    service: 'fellow4u-api',
+    database: dbReady ? 'connected' : 'connecting_or_unavailable',
+  });
 });
 
 function authMiddleware(req, res, next) {
@@ -178,6 +184,12 @@ async function handleRegister(data, res) {
     return res.status(201).json({ token, user: publicUser(user) });
   } catch (e) {
     console.error(e);
+    const msg = String(e.message || e);
+    if (msg.includes('timeout') || msg.includes('ETIMEOUT') || msg.includes('Failed to connect')) {
+      return res.status(503).json({
+        error: 'Database không kết nối được. Kiểm tra biến môi trường DB trên Render / GearHost.',
+      });
+    }
     return res.status(500).json({ error: e.message });
   }
 }
@@ -200,6 +212,12 @@ async function handleLogin(email, password, res) {
     return res.json({ token, user: publicUser(user) });
   } catch (e) {
     console.error(e);
+    const msg = String(e.message || e);
+    if (msg.includes('timeout') || msg.includes('ETIMEOUT') || msg.includes('Failed to connect')) {
+      return res.status(503).json({
+        error: 'Database không kết nối được. Kiểm tra biến môi trường DB trên Render / GearHost.',
+      });
+    }
     return res.status(500).json({ error: e.message });
   }
 }
@@ -346,26 +364,29 @@ app.post('/api/trip-information', authMiddleware, async (req, res) => {
   return res.status(201).json({ message: 'Trip information saved', data: body });
 });
 
-async function start() {
+async function initDatabase() {
   try {
     await testConnection();
+    dbReady = true;
     console.log('SQL Server: kết nối OK');
     await ensureUsernameColumn();
     console.log('Schema users.username: OK');
     await ensureDemoUser();
   } catch (e) {
+    dbReady = false;
     console.error('SQL Server lỗi:', e.message);
-    console.error('→ SSMS: chạy database/fellow4u_schema.sql');
-    console.error('→ Kiểm tra backend/.env (sa / 123123)');
-    console.error('→ Chạy: node test-db.js');
-    console.error('→ Bật service "SQL Server Browser" (services.msc) hoặc thêm DB_PORT=1433 vào .env');
+    console.error('→ SSMS / GearHost: chạy database/fellow4u_schema.sql');
+    console.error('→ Render: kiểm tra DB_SERVER, DB_NAME, DB_USER, DB_PASSWORD');
     console.error('→ API vẫn chạy nhưng login/register sẽ lỗi cho đến khi SQL kết nối được.');
   }
+}
 
+function start() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Fellow4U API: http://127.0.0.1:${PORT}/api`);
     console.log('Browser GET: http://127.0.0.1:3000/api/auth/login?email=yoojin@gmail.com&password=password123');
   });
+  void initDatabase();
 }
 
 start();

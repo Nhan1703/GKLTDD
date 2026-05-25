@@ -26,8 +26,8 @@ function buildConfig() {
   const config = {
     server: server === '.' ? 'localhost' : server,
     database: process.env.DB_NAME || 'fellow4u_db',
-    connectionTimeout: Number(process.env.DB_CONNECT_TIMEOUT || 30000),
-    requestTimeout: Number(process.env.DB_REQUEST_TIMEOUT || 30000),
+    connectionTimeout: Number(process.env.DB_CONNECT_TIMEOUT || 12000),
+    requestTimeout: Number(process.env.DB_REQUEST_TIMEOUT || 15000),
     options: {
       encrypt: process.env.DB_ENCRYPT === 'true',
       trustServerCertificate: process.env.DB_TRUST_CERT !== 'false',
@@ -60,7 +60,7 @@ const config = buildConfig();
 
 let pool;
 
-async function connectWithRetry(maxAttempts = 3) {
+async function connectWithRetry(maxAttempts = 2) {
   let lastError;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
@@ -76,7 +76,7 @@ async function connectWithRetry(maxAttempts = 3) {
       lastError = e;
       console.warn(`SQL connect lần ${attempt}/${maxAttempts} thất bại: ${e.message}`);
       if (attempt < maxAttempts) {
-        await new Promise((r) => setTimeout(r, 2000));
+        await new Promise((r) => setTimeout(r, 1000));
       }
     }
   }
