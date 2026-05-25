@@ -1,0 +1,171 @@
+{
+  "info": {
+    "name": "Fellow4U API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:3000" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"yoojin@gmail.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var j = pm.response.json();",
+                  "if (j.token) pm.collectionVariables.set('token', j.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@test.com\",\n  \"password\": \"123456\",\n  \"firstName\": \"Nam\",\n  \"lastName\": \"Test\",\n  \"country\": \"Vietnam\",\n  \"role\": \"traveler\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"password123\",\n  \"newPassword\": \"newpass123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/change-password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/profile"
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Yoo\",\n  \"lastName\": \"Jin\",\n  \"country\": \"Vietnam\"\n}"
+            },
+            "url": "{{baseUrl}}/api/profile"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tours & Search",
+      "item": [
+        {
+          "name": "List Tours",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/tours" }
+        },
+        {
+          "name": "Tour Detail",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/tours/1" }
+        },
+        {
+          "name": "Search",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/search?q=Danang" }
+        }
+      ]
+    },
+    {
+      "name": "Trips & Photos",
+      "item": [
+        {
+          "name": "My Trips",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/trips"
+          }
+        },
+        {
+          "name": "Add Trip",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"New journey\",\n  \"location\": \"Hue, Vietnam\",\n  \"tripDate\": \"May 2026\"\n}"
+            },
+            "url": "{{baseUrl}}/api/trips"
+          }
+        },
+        {
+          "name": "My Photos",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/photos"
+          }
+        },
+        {
+          "name": "Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/notifications"
+          }
+        },
+        {
+          "name": "Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripTitle\": \"Da Nang trip\",\n  \"totalAmount\": 400,\n  \"upfrontAmount\": 200,\n  \"cardHolder\": \"Yoo Jin\"\n}"
+            },
+            "url": "{{baseUrl}}/api/payments"
+          }
+        }
+      ]
+    }
+  ]
+}
