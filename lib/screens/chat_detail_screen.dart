@@ -38,6 +38,7 @@ class ChatDetailScreen extends StatefulWidget {
     required this.title,
     required this.avatarAsset,
     this.initialGroupMembers,
+    this.groupChatId,
   });
 
   final String title;
@@ -45,6 +46,9 @@ class ChatDetailScreen extends StatefulWidget {
 
   /// Khác null ⇒ đang mở luồng **nhóm mới**, không dùng lịch sử 1-1 cũ.
   final List<ChatFriendPick>? initialGroupMembers;
+
+  /// Id nhóm trong [ChatInboxStore] — dùng để xóa nhóm.
+  final String? groupChatId;
 
   @override
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
@@ -243,14 +247,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     /// Từ 2 người trở lên ⇒ **luôn** mở màn nhóm mới (route mới), không gộp vào chat đang xem.
     if (merged.length > 1) {
+      if (ChatInboxStore.instance.currentUserKey.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đăng nhập để tạo nhóm chat')),
+        );
+        return;
+      }
       if (!mounted) return;
       ChatInboxStore.instance.registerNewGroup(merged);
+      final group = ChatInboxStore.instance.createdGroups.value.first;
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => ChatDetailScreen(
             title: merged.first.name,
             avatarAsset: merged.first.avatarAsset,
-            initialGroupMembers: merged,
+            initialGroupMembers: group.members,
+            groupChatId: group.id,
           ),
         ),
       );
@@ -341,6 +355,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return '$m:${r.toString().padLeft(2, '0')}';
   }
 
+  Future<void> _deleteGroupChat() async {
+    final id = widget.groupChatId;
+    if (id == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa nhóm chat?'),
+        content: const Text('Nhóm sẽ bị xóa khỏi danh sách của bạn.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    ChatInboxStore.instance.deleteGroup(id);
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -373,6 +409,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ],
         ),
         actions: [
+          if (widget.groupChatId != null)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              tooltip: 'Xóa nhóm',
+              onPressed: _deleteGroupChat,
+            ),
           IconButton(
             icon: Icon(Icons.add_circle_outline, color: AppTheme.authHeaderTeal),
             onPressed: _openAddFriends,

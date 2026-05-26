@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
 import '../chat_inbox_store.dart';
+import '../core/session/user_session.dart';
 import 'chat_add_friends_screen.dart';
 import 'chat_detail_screen.dart';
 
@@ -13,6 +14,7 @@ class _ChatPreview {
     required this.avatarAsset,
     this.unread = 0,
     this.groupMembers,
+    this.groupId,
   });
 
   final String name;
@@ -21,8 +23,11 @@ class _ChatPreview {
   final String time;
   final String avatarAsset;
   final int unread;
-  /// Khác null ⇒ hàng nhóm mới — mở [ChatDetailScreen] với [initialGroupMembers].
+  /// Khác null ⇒ hàng nhóm — mở [ChatDetailScreen] với [initialGroupMembers].
   final List<ChatFriendPick>? groupMembers;
+  final String? groupId;
+
+  bool get isGroup => groupId != null;
 }
 
 /// Danh sách hội thoại (Figma: Chat — màn list).
@@ -60,17 +65,40 @@ class _ChatListScreenState extends State<ChatListScreen> {
   ];
 
   List<_ChatPreview> _rowsFromStore(List<CreatedGroupChat> groups) {
-    return [
+    final rows = <_ChatPreview>[
       for (final g in groups)
-        _ChatPreview(
-          name: g.listTitle,
-          preview: 'Nhóm mới — bắt đầu trò chuyện',
-          time: 'Vừa xong',
-          avatarAsset: g.members.first.avatarAsset,
-          groupMembers: g.members,
-        ),
-      ..._staticChats,
+        if (g.isVisibleToUser(ChatInboxStore.instance.currentUserKey))
+          _ChatPreview(
+            name: g.listTitle,
+            preview: 'Nhóm mới — bắt đầu trò chuyện',
+            time: 'Vừa xong',
+            avatarAsset: g.members.first.avatarAsset,
+            groupMembers: g.members,
+            groupId: g.id,
+          ),
     ];
+    if (UserSession.instance.isLoggedIn) {
+      rows.addAll(_staticChats);
+    }
+    return rows;
+  }
+
+  Future<bool> _confirmDeleteGroup(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa nhóm chat?'),
+        content: const Text('Nhóm sẽ biến mất khỏi danh sách của bạn.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
   }
 
   List<_ChatPreview> _filteredFrom(List<_ChatPreview> all) {
@@ -177,25 +205,40 @@ class _ChatListScreenState extends State<ChatListScreen> {
           ),
         ),
         Expanded(
-          child: ValueListenableBuilder<List<CreatedGroupChat>>(
-            valueListenable: ChatInboxStore.instance.createdGroups,
-            builder: (context, groups, _) {
-              final combined = _rowsFromStore(groups);
+          child: ListenableBuilder(
+            listenable: Listenable.merge([
+              ChatInboxStore.instance.createdGroups,
+              UserSession.instance,
+            ]),
+            builder: (context, _) {
+              final combined = _rowsFromStore(ChatInboxStore.instance.createdGroups.value);
               final filtered = _filteredFrom(combined);
+              if (filtered.isEmpty) {
+                return Center(
+                  child: Text(
+                    UserSession.instance.isLoggedIn
+                        ? 'Chưa có hội thoại'
+                        : 'Đăng nhập để xem chat',
+                    style: TextStyle(color: AppTheme.textLightGray),
+                  ),
+                );
+              }
               return ListView.separated(
                 itemCount: filtered.length,
                 separatorBuilder: (context, i) => Divider(height: 1, color: Colors.grey.withValues(alpha: 0.12)),
                 itemBuilder: (context, i) {
                   final c = filtered[i];
-                  return InkWell(
+                  final tile = _ChatListTile(
+                    preview: c,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => c.groupMembers != null
+                          builder: (_) => c.isGroup
                               ? ChatDetailScreen(
                                   title: c.groupMembers!.first.name,
                                   avatarAsset: c.groupMembers!.first.avatarAsset,
                                   initialGroupMembers: c.groupMembers,
+                                  groupChatId: c.groupId,
                                 )
                               : ChatDetailScreen(
                                   title: c.name,
@@ -204,68 +247,20 @@ class _ChatListScreenState extends State<ChatListScreen> {
                         ),
                       );
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 26,
-                            backgroundImage: AssetImage(c.avatarAsset),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        c.name,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF333333),
-                                        ),
-                                      ),
-                                    ),
-                                    if (c.groupMembers != null && c.groupMembers!.length > 1)
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 6),
-                                        child: Icon(Icons.groups_2_outlined, size: 16, color: AppTheme.authHeaderTeal),
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  c.preview,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 13, color: AppTheme.textLightGray),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (c.unread > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFF4B4B),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Text(
-                                '${c.unread}',
-                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
-                              ),
-                            )
-                          else
-                            Text(
-                              c.time,
-                              style: TextStyle(fontSize: 12, color: AppTheme.textLightGray),
-                            ),
-                        ],
-                      ),
+                  );
+                  if (!c.isGroup || c.groupId == null) return tile;
+                  return Dismissible(
+                    key: ValueKey('chat_${c.groupId}'),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      color: Colors.red,
+                      child: const Icon(Icons.delete_outline, color: Colors.white),
                     ),
+                    confirmDismiss: (_) => _confirmDeleteGroup(context),
+                    onDismissed: (_) => ChatInboxStore.instance.deleteGroup(c.groupId!),
+                    child: tile,
                   );
                 },
               );
@@ -273,6 +268,83 @@ class _ChatListScreenState extends State<ChatListScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ChatListTile extends StatelessWidget {
+  const _ChatListTile({required this.preview, required this.onTap});
+
+  final _ChatPreview preview;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = preview;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 26,
+              backgroundImage: AssetImage(c.avatarAsset),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          c.name,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF333333),
+                          ),
+                        ),
+                      ),
+                      if (c.isGroup && (c.groupMembers?.length ?? 0) > 1)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: Icon(Icons.groups_2_outlined, size: 16, color: AppTheme.authHeaderTeal),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    c.preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, color: AppTheme.textLightGray),
+                  ),
+                ],
+              ),
+            ),
+            if (c.unread > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFF4B4B),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '${c.unread}',
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              )
+            else
+              Text(
+                c.time,
+                style: TextStyle(fontSize: 12, color: AppTheme.textLightGray),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

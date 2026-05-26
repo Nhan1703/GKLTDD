@@ -3,10 +3,21 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 
 class ChatFriendPick {
-  const ChatFriendPick({required this.name, required this.avatarAsset});
+  const ChatFriendPick({
+    required this.name,
+    required this.avatarAsset,
+    this.userKey,
+  });
 
   final String name;
   final String avatarAsset;
+  /// Khóa thành viên (email / username); mặc định = tên viết thường.
+  final String? userKey;
+
+  String get participantKey => (userKey ?? name).trim().toLowerCase();
+
+  bool isSameParticipant(String key) =>
+      key.isNotEmpty && participantKey == key.trim().toLowerCase();
 }
 
 class _FriendRow {

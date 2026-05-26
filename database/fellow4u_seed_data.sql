@@ -1,18 +1,32 @@
 -- Fellow4U — Dữ liệu mẫu (SQL Server)
--- SSMS: chọn database fellow4u_db → New Query → F5
--- Cần có user trước: chạy backend (npm start) HOẶC dùng block INSERT user bên dưới.
+-- GearHost: đổi USE thành tên DB của bạn (vd. newdatabase11)
+-- Local:   USE fellow4u_db;
 
-USE fellow4u_db;
+USE newdatabase11;
 GO
 
--- User demo: chạy backend trước → npm start (tạo yoojin@gmail.com / password123)
+-- User demo (password: password123) — bcrypt hash, khớp backend Node
+IF NOT EXISTS (SELECT 1 FROM dbo.users WHERE email = N'yoojin@gmail.com')
+BEGIN
+  INSERT INTO dbo.users (email, username, password_hash, first_name, last_name, country, role, avatar_url)
+  VALUES (
+    N'yoojin@gmail.com',
+    N'yoojin',
+    N'$2a$10$X.wBI9tSd6VudumIf1VNkui6rSg/NUg/N4XIrzfIGXmhkmNKqYHr.',
+    N'Yoo',
+    N'Jin',
+    N'Vietnam',
+    N'traveler',
+    N'assets/images/guide_emmy.png'
+  );
+  PRINT N'Đã tạo user demo: yoojin@gmail.com / password123';
+END
+GO
+
 DECLARE @uid INT = (SELECT TOP 1 id FROM dbo.users WHERE email = N'yoojin@gmail.com');
 IF @uid IS NULL
-  SET @uid = (SELECT TOP 1 id FROM dbo.users ORDER BY id); -- dùng user đầu tiên nếu có
-
-IF @uid IS NULL
 BEGIN
-  RAISERROR(N'Bảng users trống. Chạy backend: cd backend → npm start, rồi Execute lại file này.', 16, 1);
+  RAISERROR(N'Không tìm thấy user yoojin@gmail.com sau INSERT.', 16, 1);
   RETURN;
 END
 
@@ -25,9 +39,6 @@ BEGIN
     (N'Melbourne - Sydney', N'Australia', N'Jan 30, 2020', N'7 days', 600.00, N'2817 km', N'assets/images/tour_sydney.png', N'Coast to coast'),
     (N'Hanoi - Ha Long Bay', N'Hanoi, Vietnam', N'Jan 30, 2020', N'5 days', 300.00, N'1247 km', N'assets/images/tour_halong.png', N'Northern highlights');
 END
-GO
-
-DECLARE @uid INT = (SELECT TOP 1 id FROM dbo.users WHERE email = N'yoojin@gmail.com');
 
 /* ========== TRIPS (My Journeys) ========== */
 IF NOT EXISTS (SELECT 1 FROM dbo.trips WHERE user_id = @uid AND title = N'A memory in Danang')
@@ -39,9 +50,6 @@ BEGIN
     (@uid, N'Sapa in spring', N'Sapa, Vietnam', N'Jan 18, 2020', 189,
       N'assets/images/exp_grid_5.png', N'assets/images/exp_grid_6.png', N'assets/images/exp_grid_1.png', N'confirmed');
 END
-GO
-
-DECLARE @uid INT = (SELECT TOP 1 id FROM dbo.users WHERE email = N'yoojin@gmail.com');
 
 /* ========== PHOTOS ========== */
 IF NOT EXISTS (SELECT 1 FROM dbo.photos WHERE user_id = @uid)
@@ -53,9 +61,6 @@ BEGIN
     (@uid, N'assets/images/exp_hoian_bicycle.png', N'Hoi An'),
     (@uid, N'assets/images/journey_danang.png', N'My journey');
 END
-GO
-
-DECLARE @uid INT = (SELECT TOP 1 id FROM dbo.users WHERE email = N'yoojin@gmail.com');
 
 /* ========== NOTIFICATIONS ========== */
 IF NOT EXISTS (SELECT 1 FROM dbo.notifications WHERE user_id = @uid)
@@ -72,11 +77,8 @@ BEGIN
       N'Thanks! Your trip in Danang has been finished. Please leave a review for Tuan Tran.',
       N'Jan 24', N'assets/images/app_icon.png', N'#3F8CFF', N'review', 1, 0);
 END
-GO
 
-DECLARE @uid INT = (SELECT TOP 1 id FROM dbo.users WHERE email = N'yoojin@gmail.com');
-
-/* ========== PAYMENTS (bảng đang trống) ========== */
+/* ========== PAYMENTS ========== */
 IF NOT EXISTS (SELECT 1 FROM dbo.payments WHERE user_id = @uid)
 BEGIN
   INSERT INTO dbo.payments (user_id, trip_title, total_amount, upfront_amount, card_holder, status)
